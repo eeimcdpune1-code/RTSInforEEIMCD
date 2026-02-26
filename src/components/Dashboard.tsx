@@ -36,6 +36,7 @@ export default function Dashboard({ user }: DashboardProps) {
   const [timeframe, setTimeframe] = useState<"monthly" | "yearly">("monthly");
   const [stats, setStats] = useState<DashboardStat[]>([]);
   const [corpStats, setCorpStats] = useState<any[]>([]);
+  const [serviceStats, setServiceStats] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<"office" | "corporation">(user.role === "Admin" ? "corporation" : "office");
   const [selectedOffice, setSelectedOffice] = useState<{ id: number, name: string } | null>(null);
@@ -59,6 +60,7 @@ export default function Dashboard({ user }: DashboardProps) {
       if (data.success) {
         setStats(data.stats);
         setCorpStats(data.corpStats || []);
+        setServiceStats(data.serviceStats || []);
       }
     } catch (err) {
       console.error(err);
@@ -138,6 +140,14 @@ export default function Dashboard({ user }: DashboardProps) {
   }), { total: 0, approved: 0, rejected: 0, pending: 0, sendback: 0 });
 
   const grandTotals = activeStats.reduce((acc, curr) => ({
+    total: acc.total + (curr.total || 0),
+    approved: acc.approved + (curr.approved || 0),
+    rejected: acc.rejected + (curr.rejected || 0),
+    pending: acc.pending + (curr.pending || 0),
+    sendback: acc.sendback + (curr.sendback || 0),
+  }), { total: 0, approved: 0, rejected: 0, pending: 0, sendback: 0 });
+
+  const serviceTotals = serviceStats.reduce((acc, curr) => ({
     total: acc.total + (curr.total || 0),
     approved: acc.approved + (curr.approved || 0),
     rejected: acc.rejected + (curr.rejected || 0),
@@ -585,6 +595,66 @@ export default function Dashboard({ user }: DashboardProps) {
             </table>
           </div>
         </div>
+
+        {/* Service-wise Summary Table */}
+        {(user.role === "Admin" || user.role === "Corporation") && (
+          <div className="bg-white rounded-xl border border-stone-200 shadow-sm overflow-hidden">
+            <div className="p-6 border-b border-stone-100 flex justify-between items-center bg-stone-50/50">
+              <h3 className="text-sm font-bold text-stone-900 uppercase tracking-wider">
+                Service-wise Summary Table
+              </h3>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => downloadExcel(serviceStats.map(s => ({ Service: s.serviceName, Total: s.total, Approved: s.approved, Rejected: s.rejected, Pending: s.pending, Sendback: s.sendback })), "Service_wise_Summary", ["Service", "Total", "Approved", "Rejected", "Pending", "Sendback"])}
+                  className="p-1.5 hover:bg-stone-100 rounded-md transition-colors text-stone-400 hover:text-stone-900"
+                  title="Download Excel"
+                >
+                  <Download className="w-4 h-4" />
+                </button>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
+                  <span className="text-[10px] text-stone-400 font-bold uppercase">Aggregated by Service</span>
+                </div>
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="bg-stone-50 text-stone-400 text-[10px] font-bold uppercase tracking-wider border-b border-stone-100">
+                    <th className="px-6 py-4">Service Name</th>
+                    <th className="px-6 py-4">Total</th>
+                    <th className="px-6 py-4">Approved</th>
+                    <th className="px-6 py-4">Rejected</th>
+                    <th className="px-6 py-4">Pending</th>
+                    <th className="px-6 py-4">Sendback</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-100">
+                  {serviceStats.map((stat, idx) => (
+                    <tr key={idx} className="hover:bg-stone-50 transition-colors">
+                      <td className="px-6 py-4 text-sm font-medium text-stone-900">{stat.serviceName}</td>
+                      <td className="px-6 py-4 text-sm text-stone-900 font-bold">{stat.total || 0}</td>
+                      <td className="px-6 py-4 text-sm text-emerald-600 font-semibold">{stat.approved || 0}</td>
+                      <td className="px-6 py-4 text-sm text-red-600 font-semibold">{stat.rejected || 0}</td>
+                      <td className="px-6 py-4 text-sm text-amber-600 font-semibold">{stat.pending || 0}</td>
+                      <td className="px-6 py-4 text-sm text-indigo-600 font-semibold">{stat.sendback || 0}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="bg-stone-50 border-t border-stone-200">
+                  <tr className="font-bold text-stone-900">
+                    <td className="px-6 py-4 text-sm uppercase tracking-wider">Total</td>
+                    <td className="px-6 py-4 text-sm">{serviceTotals.total}</td>
+                    <td className="px-6 py-4 text-sm text-emerald-600">{serviceTotals.approved}</td>
+                    <td className="px-6 py-4 text-sm text-red-600">{serviceTotals.rejected}</td>
+                    <td className="px-6 py-4 text-sm text-amber-600">{serviceTotals.pending}</td>
+                    <td className="px-6 py-4 text-sm text-indigo-600">{serviceTotals.sendback}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Corporation Drill-down Modal */}

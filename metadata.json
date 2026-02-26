@@ -1,5 +1,5 @@
 {
-  "name": "Remix: Office Monthly Reporting System",
-  "description": "A secure data collection and dashboard system for 13 offices with Google Sheets integration.",
+  "name": "RTS Information System",
+  "description": "A secure data collection and dashboard system with Google Sheets integration.",
   "requestFramePermissions": []
 }

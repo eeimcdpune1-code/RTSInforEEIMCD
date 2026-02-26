@@ -352,7 +352,56 @@ async function startServer() {
         });
       }
 
-      res.json({ success: true, stats, corpStats });
+      // Calculate service-wise totals
+      const serviceMap: Record<string, any> = {};
+      const relevantOfficeIds = targetOffices.map(o => o[0]);
+      const relevantSubmissions = allSubmissions.filter(row => 
+        relevantOfficeIds.includes(row[0]) && row[2] === month
+      );
+
+      relevantSubmissions.forEach(d => {
+        const serviceName = d[3];
+        if (!serviceMap[serviceName]) {
+          serviceMap[serviceName] = {
+            serviceName,
+            offline: { total: 0, approved: 0, rejected: 0, pending: 0, sendback: 0 },
+            online: { total: 0, approved: 0, rejected: 0, pending: 0, sendback: 0 },
+            total: 0, approved: 0, rejected: 0, pending: 0, sendback: 0
+          };
+        }
+        
+        const off_total = parseInt(d[4]) || 0;
+        const off_appr = parseInt(d[5]) || 0;
+        const off_rej = parseInt(d[6]) || 0;
+        const off_pend = parseInt(d[7]) || 0;
+        const off_sb = parseInt(d[8]) || 0;
+
+        const on_total = parseInt(d[9]) || 0;
+        const on_appr = parseInt(d[10]) || 0;
+        const on_rej = parseInt(d[11]) || 0;
+        const on_pend = parseInt(d[12]) || 0;
+        const on_sb = parseInt(d[13]) || 0;
+
+        serviceMap[serviceName].offline.total += off_total;
+        serviceMap[serviceName].offline.approved += off_appr;
+        serviceMap[serviceName].offline.rejected += off_rej;
+        serviceMap[serviceName].offline.pending += off_pend;
+        serviceMap[serviceName].offline.sendback += off_sb;
+        
+        serviceMap[serviceName].online.total += on_total;
+        serviceMap[serviceName].online.approved += on_appr;
+        serviceMap[serviceName].online.rejected += on_rej;
+        serviceMap[serviceName].online.pending += on_pend;
+        serviceMap[serviceName].online.sendback += on_sb;
+
+        serviceMap[serviceName].total += off_total + on_total;
+        serviceMap[serviceName].approved += off_appr + on_appr;
+        serviceMap[serviceName].rejected += off_rej + on_rej;
+        serviceMap[serviceName].pending += off_pend + on_pend;
+        serviceMap[serviceName].sendback += off_sb + on_sb;
+      });
+
+      res.json({ success: true, stats, corpStats, serviceStats: Object.values(serviceMap) });
     } catch (error: any) {
       console.error(error);
       res.status(500).json({ success: false, message: error.message || "Failed to fetch dashboard data." });
@@ -460,7 +509,61 @@ async function startServer() {
         });
       }
 
-      res.json({ success: true, stats, corpStats });
+      // Calculate service-wise totals (Financial Year)
+      const serviceMap: Record<string, any> = {};
+      const relevantOfficeIds = targetOffices.map(o => o[0]);
+      const relevantSubmissions = allSubmissions.filter(row => {
+        if (!relevantOfficeIds.includes(row[0])) return false;
+        const monthStr = row[2];
+        const [y, m] = monthStr.split("-").map(Number);
+        const isStartYear = (y === startYear && m >= 4);
+        const isEndYear = (y === endYear && m <= 3);
+        return isStartYear || isEndYear;
+      });
+
+      relevantSubmissions.forEach(d => {
+        const serviceName = d[3];
+        if (!serviceMap[serviceName]) {
+          serviceMap[serviceName] = {
+            serviceName,
+            offline: { total: 0, approved: 0, rejected: 0, pending: 0, sendback: 0 },
+            online: { total: 0, approved: 0, rejected: 0, pending: 0, sendback: 0 },
+            total: 0, approved: 0, rejected: 0, pending: 0, sendback: 0
+          };
+        }
+        
+        const off_total = parseInt(d[4]) || 0;
+        const off_appr = parseInt(d[5]) || 0;
+        const off_rej = parseInt(d[6]) || 0;
+        const off_pend = parseInt(d[7]) || 0;
+        const off_sb = parseInt(d[8]) || 0;
+
+        const on_total = parseInt(d[9]) || 0;
+        const on_appr = parseInt(d[10]) || 0;
+        const on_rej = parseInt(d[11]) || 0;
+        const on_pend = parseInt(d[12]) || 0;
+        const on_sb = parseInt(d[13]) || 0;
+
+        serviceMap[serviceName].offline.total += off_total;
+        serviceMap[serviceName].offline.approved += off_appr;
+        serviceMap[serviceName].offline.rejected += off_rej;
+        serviceMap[serviceName].offline.pending += off_pend;
+        serviceMap[serviceName].offline.sendback += off_sb;
+        
+        serviceMap[serviceName].online.total += on_total;
+        serviceMap[serviceName].online.approved += on_appr;
+        serviceMap[serviceName].online.rejected += on_rej;
+        serviceMap[serviceName].online.pending += on_pend;
+        serviceMap[serviceName].online.sendback += on_sb;
+
+        serviceMap[serviceName].total += off_total + on_total;
+        serviceMap[serviceName].approved += off_appr + on_appr;
+        serviceMap[serviceName].rejected += off_rej + on_rej;
+        serviceMap[serviceName].pending += off_pend + on_pend;
+        serviceMap[serviceName].sendback += off_sb + on_sb;
+      });
+
+      res.json({ success: true, stats, corpStats, serviceStats: Object.values(serviceMap) });
     } catch (error: any) {
       console.error(error);
       res.status(500).json({ success: false, message: error.message || "Failed to fetch dashboard data." });

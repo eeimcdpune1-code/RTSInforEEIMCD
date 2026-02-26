@@ -63,7 +63,7 @@ export default function Login({ onLogin }: LoginProps) {
     <div className="min-h-screen flex items-center justify-center bg-stone-100 p-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 border border-stone-200">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-stone-900">Office Reporting</h1>
+          <h1 className="text-2xl font-bold text-stone-900">RTS Information System</h1>
           <p className="text-stone-500 text-sm mt-1">Please sign in to your office account</p>
         </div>
 
