@@ -51,6 +51,9 @@ async function updateSheetData(range: string, values: any[][]) {
   });
 }
 
+// Simple queue to serialize submission requests
+let submissionQueue = Promise.resolve();
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
@@ -126,47 +129,55 @@ async function startServer() {
   app.post("/api/submit", async (req, res) => {
     const { officeId, month, data } = req.body;
     
-    try {
-      // Backend Validation
-      for (const item of data) {
-        const offSum = (item.offline.approved || 0) + (item.offline.rejected || 0) + (item.offline.pending || 0) + (item.offline.sendback || 0);
-        const onSum = (item.online.approved || 0) + (item.online.rejected || 0) + (item.online.pending || 0) + (item.online.sendback || 0);
-        
-        if (offSum > (item.offline.total || 0) || onSum > (item.online.total || 0)) {
-          return res.status(400).json({ 
-            success: false, 
-            message: `Validation failed for service: ${item.serviceName}. Sum of statuses exceeds total.` 
-          });
+    // Use the queue to serialize submissions
+    submissionQueue = submissionQueue.then(async () => {
+      try {
+        // Backend Validation
+        for (const item of data) {
+          const offSum = (item.offline.approved || 0) + (item.offline.rejected || 0) + (item.offline.pending || 0) + (item.offline.sendback || 0);
+          const onSum = (item.online.approved || 0) + (item.online.rejected || 0) + (item.online.pending || 0) + (item.online.sendback || 0);
+          
+          if (offSum > (item.offline.total || 0) || onSum > (item.online.total || 0)) {
+            res.status(400).json({ 
+              success: false, 
+              message: `Validation failed for service: ${item.serviceName}. Sum of statuses exceeds total.` 
+            });
+            return;
+          }
         }
+
+        const allSubmissions = await getSheetData("Submissions!A2:O");
+        const offices = await getSheetData("Offices!A2:B");
+        const officeName = offices.find(o => parseInt(o[0]) === officeId)?.[1] || "Unknown";
+
+        // Filter out existing rows for this office and month
+        const filteredSubmissions = allSubmissions.filter(row => !(row[0] === String(officeId) && row[2] === month));
+
+        // Create new rows
+        const newRows = data.map((item: any) => [
+          officeId,
+          officeName,
+          month,
+          item.serviceName,
+          item.offline.total, item.offline.approved, item.offline.rejected, item.offline.pending, item.offline.sendback,
+          item.online.total, item.online.approved, item.online.rejected, item.online.pending, item.online.sendback,
+          new Date().toISOString()
+        ]);
+
+        // Overwrite Submissions sheet (Headers + Filtered + New)
+        const headers = ["Office ID", "Office Name", "Month", "Service Name", "Offline Total", "Offline Approved", "Offline Rejected", "Offline Pending", "Offline Sendback", "Online Total", "Online Approved", "Online Rejected", "Online Pending", "Online Sendback", "Updated At"];
+        await updateSheetData("Submissions!A1", [headers, ...filteredSubmissions, ...newRows]);
+
+        res.json({ success: true });
+      } catch (error: any) {
+        console.error(error);
+        res.status(500).json({ success: false, message: error.message || "Failed to save to Sheets." });
       }
-
-      const allSubmissions = await getSheetData("Submissions!A2:O");
-      const offices = await getSheetData("Offices!A2:B");
-      const officeName = offices.find(o => parseInt(o[0]) === officeId)?.[1] || "Unknown";
-
-      // Filter out existing rows for this office and month
-      const filteredSubmissions = allSubmissions.filter(row => !(row[0] === String(officeId) && row[2] === month));
-
-      // Create new rows
-      const newRows = data.map((item: any) => [
-        officeId,
-        officeName,
-        month,
-        item.serviceName,
-        item.offline.total, item.offline.approved, item.offline.rejected, item.offline.pending, item.offline.sendback,
-        item.online.total, item.online.approved, item.online.rejected, item.online.pending, item.online.sendback,
-        new Date().toISOString()
-      ]);
-
-      // Overwrite Submissions sheet (Headers + Filtered + New)
-      const headers = ["Office ID", "Office Name", "Month", "Service Name", "Offline Total", "Offline Approved", "Offline Rejected", "Offline Pending", "Offline Sendback", "Online Total", "Online Approved", "Online Rejected", "Online Pending", "Online Sendback", "Updated At"];
-      await updateSheetData("Submissions!A1", [headers, ...filteredSubmissions, ...newRows]);
-
-      res.json({ success: true });
-    } catch (error: any) {
-      console.error(error);
-      res.status(500).json({ success: false, message: error.message || "Failed to save to Sheets." });
-    }
+    }).catch(err => {
+      console.error("Queue error:", err);
+      // Ensure the queue continues even on error
+      return Promise.resolve();
+    });
   });
 
   // Get Submission for Edit

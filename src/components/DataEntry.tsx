@@ -169,23 +169,37 @@ export default function DataEntry({ office }: DataEntryProps) {
       return;
     }
 
-    try {
-      const res = await fetch("/api/submit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ officeId: selectedOfficeId, month, data: rows }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setStatus({ type: "success", message: "Data saved successfully!" });
-      } else {
-        setStatus({ type: "error", message: data.message });
+    const maxRetries = 3;
+    let attempt = 0;
+
+    const performSubmit = async (): Promise<boolean> => {
+      try {
+        const res = await fetch("/api/submit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ officeId: selectedOfficeId, month, data: rows }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          setStatus({ type: "success", message: "Data saved successfully!" });
+          return true;
+        } else {
+          throw new Error(data.message || "Server error");
+        }
+      } catch (err: any) {
+        attempt++;
+        if (attempt < maxRetries) {
+          setStatus({ type: "error", message: `Save failed. Retrying... (Attempt ${attempt + 1}/${maxRetries})` });
+          await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds before retry
+          return performSubmit();
+        }
+        setStatus({ type: "error", message: err.message || "Failed to save data after multiple attempts. Please check your connection." });
+        return false;
       }
-    } catch (err) {
-      setStatus({ type: "error", message: "Failed to save data" });
-    } finally {
-      setLoading(false);
-    }
+    };
+
+    await performSubmit();
+    setLoading(false);
   };
 
   return (
