@@ -54,11 +54,12 @@ async function updateSheetData(range: string, values: any[][]) {
 // Simple queue to serialize submission requests
 let submissionQueue = Promise.resolve();
 
-async function startServer() {
-  const app = express();
-  const PORT = 3000;
+const app = express();
+const PORT = 3000;
 
-  app.use(express.json());
+app.use(express.json());
+
+async function startServer() {
 
   // Get Offices List
   app.get("/api/offices", async (req, res) => {
@@ -67,7 +68,8 @@ async function startServer() {
       const formattedOffices = offices.map(o => ({
         id: parseInt(o[0]),
         name: o[1],
-        role: o[3] || "Office"
+        role: o[4] || "Office",
+        corporationId: o[3] ? parseInt(o[3]) : null
       }));
       res.json({ success: true, offices: formattedOffices });
     } catch (error: any) {
@@ -89,8 +91,8 @@ async function startServer() {
           office: { 
             id: parseInt(office[0]), 
             name: office[1],
-            role: office[3] || "Office",
-            corporationId: office[4] ? parseInt(office[4]) : null
+            role: office[4] || "Office",
+            corporationId: office[3] ? parseInt(office[3]) : null
           } 
         });
       } else {
@@ -581,18 +583,22 @@ async function startServer() {
     }
   });
 
-  // Vite middleware for development
+  // ---- CATCH-ALL: Serve React app for non-API routes (production) ----
+  if (process.env.NODE_ENV === "production") {
+    app.use(express.static(path.join(__dirname, "dist")));
+    app.get("*", (req, res) => {
+      res.sendFile(path.join(__dirname, "dist", "index.html"));
+    });
+  }
+
+  // ---- LOCAL DEV: Vite middleware (only when not on Vercel/production) ----
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
-  } else {
-    app.use(express.static(path.join(__dirname, "dist")));
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(__dirname, "dist", "index.html"));
-    });
   }
 
   app.listen(PORT, "0.0.0.0", () => {
@@ -601,3 +607,5 @@ async function startServer() {
 }
 
 startServer();
+
+export default app;

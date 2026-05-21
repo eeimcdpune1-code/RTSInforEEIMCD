@@ -130,12 +130,7 @@ export default function Login({ onLogin }: LoginProps) {
             {loading ? "Signing in..." : "Sign In"}
           </button>
         </form>
-        
-        <div className="mt-8 pt-6 border-t border-stone-100 text-center">
-          <p className="text-xs text-stone-400">
-            Login details are managed in the "Offices" sheet of your Google Spreadsheet.
-          </p>
-        </div>
+
       </div>
     </div>
   );
